@@ -1,0 +1,52 @@
+{
+  "rows": [
+    {
+      "collection": "librarian",
+      "config": "BM25 only",
+      "recall@1": 0.65,
+      "recall@3": 0.775,
+      "recall@5": 0.8,
+      "recall@10": 0.85,
+      "mrr@10": 0.7071428571428571,
+      "search_p50_ms": 24.8,
+      "search_p95_ms": 29.0,
+      "n_questions": 20
+    },
+    {
+      "collection": "librarian",
+      "config": "Dense only",
+      "recall@1": 0.625,
+      "recall@3": 0.775,
+      "recall@5": 0.9,
+      "recall@10": 0.9,
+      "mrr@10": 0.745,
+      "search_p50_ms": 11.3,
+      "search_p95_ms": 15.0,
+      "n_questions": 20
+    },
+    {
+      "collection": "librarian",
+      "config": "Hybrid (RRF)",
+      "recall@1": 0.65,
+      "recall@3": 0.775,
+      "recall@5": 0.9,
+      "recall@10": 0.9,
+      "mrr@10": 0.75,
+      "search_p50_ms": 48.0,
+      "search_p95_ms": 57.4,
+      "n_questions": 20
+    },
+    {
+      "collection": "librarian",
+      "config": "Hybrid + reranker",
+      "recall@1": 0.65,
+      "recall@3": 0.775,
+      "recall@5": 0.875,
+      "recall@10": 0.9,
+      "mrr@10": 0.7391666666666666,
+      "search_p50_ms": 879.3,
+      "search_p95_ms": 904.1,
+      "n_questions": 20
+    }
+  ]
+}
