@@ -126,3 +126,10 @@ A request sends ~1 800 input + ~250 output tokens to the generator, so the free 
 (observed: generation 0.5 s → 10–17 s). Fewer tokens per request therefore raises *capacity* as well
 as cutting cost — the main Week 3 lever. The eval paces itself to the TPM limit so that measured
 latency is the system's, not the queue's.
+
+## 10. Cost model (filled in Week 2)
+
+cost/request = rewrite share × rewrite cost + generation cost (input ≈ top_k × chunk tokens + prompt;
+output ≈ answer tokens), priced at Groq list prices in `librarian/llm.py` (free tier bills $0 but is
+rate-limited per model; check console.groq.com/settings/limits). Embeddings and reranking run
+locally: CPU time only. To compute today and at 100× traffic from `/api/stats` and the eval runs.
