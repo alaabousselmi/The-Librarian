@@ -1,6 +1,6 @@
-"""Dense (bge-small) and sparse (BM25) encoders.
+"""Dense (bge-small) and sparse (BM25) encoders, plus the cross-encoder reranker.
 
-Both run locally on CPU through fastembed/ONNX: zero API cost, no torch,
+All three run locally on CPU through fastembed/ONNX: zero API cost, no torch,
 and a Docker image small enough for free hosting. Models are loaded lazily and
 cached on disk (MODEL_CACHE_DIR) so the container can pre-download them at build.
 """
@@ -31,6 +31,12 @@ class Encoders:
         return SparseTextEmbedding(self.s.sparse_model, cache_dir=self.s.model_cache_dir)
 
     @cached_property
+    def reranker(self):
+        from fastembed.rerank.cross_encoder import TextCrossEncoder
+
+        return TextCrossEncoder(self.s.rerank_model, cache_dir=self.s.model_cache_dir)
+
+    @cached_property
     def dense_dim(self) -> int:
         return len(self.embed_query("dimension probe"))
 
@@ -48,6 +54,10 @@ class Encoders:
         v = next(iter(self.sparse.query_embed(text)))
         return models.SparseVector(indices=v.indices.tolist(), values=v.values.tolist())
 
+    def rerank(self, query: str, texts: list[str]) -> list[float]:
+        return [float(s) for s in self.reranker.rerank(query, texts)]
+
     def warmup(self) -> None:
         self.embed_query("warmup")
         self.sparse_query("warmup")
+        self.rerank("warmup", ["warmup"])

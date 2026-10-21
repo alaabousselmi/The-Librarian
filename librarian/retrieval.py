@@ -1,6 +1,7 @@
-"""Hybrid retrieval: BM25 + dense, fused with Reciprocal Rank Fusion.
+"""Hybrid retrieval: BM25 + dense, fused with Reciprocal Rank Fusion, then reranked.
 
-The mode can be switched (bm25 | dense | hybrid), which is what the ablation needs.
+Every stage can be switched off, which is exactly what the ablation needs:
+  bm25 | dense | hybrid   x   reranker on/off.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from librarian.store import SearchFilters, Store
 @dataclass
 class Hit:
     chunk: Chunk
-    score: float  # fused (RRF) score, or the raw score in single-retriever modes
+    score: float  # final ordering score (rerank logit if reranked, else fused/raw score)
     scores: dict[str, float] = field(default_factory=dict)
 
 
@@ -56,9 +57,11 @@ class Retriever:
         return rrf([bm25, dense], self.s.rrf_k)
 
     def retrieve(self, queries: list[str], *, mode: RetrievalMode | None = None,
-                 top_k: int | None = None, filters: SearchFilters | None = None) -> RetrievalResult:
+                 rerank: bool | None = None, top_k: int | None = None,
+                 filters: SearchFilters | None = None, rerank_query: str | None = None) -> RetrievalResult:
         """Retrieve for one or more (rewritten) queries; results are merged with RRF."""
         mode = mode or self.s.retrieval_mode
+        rerank = self.s.use_reranker if rerank is None else rerank
         top_k = top_k or self.s.top_k
         timings: dict[str, float] = {}
 
@@ -71,4 +74,40 @@ class Retriever:
         timings["search_ms"] = (time.perf_counter() - t0) * 1000
 
         hits = [Hit(c, s, {"first_stage": s}) for c, s in fused]
-        return RetrievalResult(hits=hits[:top_k], timings_ms=timings, reranked=False)
+        if rerank and hits:
+            t1 = time.perf_counter()
+            if len(queries) > 1:
+                hits = self._rerank_per_subquery(queries[1:], per_query, top_k)
+            else:
+                hits = self._rerank(rerank_query or queries[0], hits[: self.s.rerank_candidates])
+            timings["rerank_ms"] = (time.perf_counter() - t1) * 1000
+
+        return RetrievalResult(hits=hits[:top_k], timings_ms=timings, reranked=rerank)
+
+    def _rerank(self, query: str, candidates: list[Hit]) -> list[Hit]:
+        logits = self.enc.rerank(query, [h.chunk.embed_text for h in candidates])
+        for h, logit in zip(candidates, logits, strict=True):
+            h.scores["rerank"] = logit
+            h.score = logit
+        return sorted(candidates, key=lambda h: h.score, reverse=True)
+
+    def _rerank_per_subquery(self, subqueries: list[str], per_query: list[list[tuple[Chunk, float]]],
+                             top_k: int) -> list[Hit]:
+        """Multi-part questions: rerank each part against its own candidates, then interleave.
+
+        Reranking everything against the full multi-part question lets the dominant part take
+        every slot (observed: "enable CORS? and how to test?" returned only CORS chunks).
+        """
+        n_cand = max(self.s.rerank_candidates // len(subqueries), top_k)
+        ranked = [self._rerank(q, [Hit(c, s, {"first_stage": s}) for c, s in res[:n_cand]])
+                  for q, res in zip(subqueries, per_query[1:], strict=True)]
+        merged: list[Hit] = []
+        seen: set[str] = set()
+        for i in range(max(len(r) for r in ranked)):
+            for r in ranked:
+                if i < len(r) and r[i].chunk.chunk_id not in seen:
+                    seen.add(r[i].chunk.chunk_id)
+                    merged.append(r[i])
+        # best score first so the abstention check sees the most relevant chunk
+        head = sorted(merged[:top_k], key=lambda h: h.score, reverse=True)
+        return head + merged[top_k:]
