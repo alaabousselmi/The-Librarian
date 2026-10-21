@@ -1,4 +1,4 @@
-"""HTTP service: JSON API."""
+"""HTTP service: JSON API + a small web UI for real users."""
 
 from __future__ import annotations
 
@@ -7,9 +7,12 @@ import threading
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from librarian.api.schemas import (
     AskRequest,
@@ -24,6 +27,7 @@ from librarian.store import SearchFilters
 from librarian.telemetry import Telemetry
 
 log = logging.getLogger(__name__)
+STATIC = Path(__file__).parent / "static"
 
 
 class RateLimiter:
@@ -137,5 +141,11 @@ def create_app(pipeline=None, telemetry: Telemetry | None = None) -> FastAPI:
     @app.get("/api/stats")
     def stats(hours: float | None = None):
         return state["telemetry"].stats(hours * 3600 if hours else None)
+
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+    @app.get("/", include_in_schema=False)
+    def index():
+        return FileResponse(STATIC / "index.html")
 
     return app

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Librarian</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>The Librarian</h1>
+      <p class="sub">Answers about <strong>FastAPI</strong> from the official docs, GitHub Discussions and issues — every claim cited.</p>
+    </header>
+
+    <form id="ask-form">
+      <textarea id="question" rows="3" maxlength="1000" required
+        placeholder="e.g. How do I run code after returning a response?"></textarea>
+      <div class="row">
+        <fieldset class="filters">
+          <legend>Search in</legend>
+          <label><input type="checkbox" name="src" value="docs" checked> Docs</label>
+          <label><input type="checkbox" name="src" value="discussion" checked> Discussions</label>
+          <label><input type="checkbox" name="src" value="issue" checked> Issues</label>
+        </fieldset>
+        <button type="submit" id="ask-btn">Ask</button>
+      </div>
+    </form>
+
+    <section id="result" hidden>
+      <div id="answer" class="answer"></div>
+      <div id="meta" class="meta"></div>
+      <h2>Sources</h2>
+      <ol id="sources" class="sources"></ol>
+      <div class="feedback">
+        <span>Was this answer right?</span>
+        <button type="button" data-rating="1" aria-label="Yes, correct">👍</button>
+        <button type="button" data-rating="-1" aria-label="No, wrong">👎</button>
+        <input id="fb-comment" type="text" maxlength="2000" placeholder="What was wrong? (optional)">
+        <span id="fb-status" role="status"></span>
+      </div>
+    </section>
+
+    <p id="error" class="error" role="alert" hidden></p>
+
+    <footer>
+      Answers can be wrong — check the cited source. Questions are logged anonymously to evaluate the service.
+      <a href="/docs">API</a> · <a href="https://github.com/fastapi/fastapi">FastAPI on GitHub</a>
+    </footer>
+  </main>
+</body>
+</html>
