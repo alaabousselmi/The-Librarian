@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+
+# Secrets — never commit keys
+.env
+.env.*
+!.env.example
+
+# Corpus, index and model caches are rebuilt from a clean clone (`librarian build`)
+data/raw/
+data/processed/
+data/qdrant/
+data/telemetry*.db
+.cache/
+models/
+
+# Eval run outputs (commit only the summary tables you cite in the report)
+eval/results/runs/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log
