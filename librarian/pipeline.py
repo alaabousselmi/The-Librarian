@@ -1,4 +1,4 @@
-"""The online path: rewrite -> retrieve (hybrid) -> rerank -> generate."""
+"""The online path: rewrite -> retrieve (hybrid) -> rerank -> abstain? -> generate."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ class AskOptions:
     rerank: bool | None = None
     top_k: int | None = None
     rewrite_mode: str | None = None
+    abstain_threshold: float | None = None
 
 
 @dataclass
@@ -73,9 +74,12 @@ class Pipeline:
         timings.update(retrieval.timings_ms)
         hits = retrieval.hits
 
+        threshold = self.s.abstain_threshold if o.abstain_threshold is None else o.abstain_threshold
         abstain_reason = None
         if not hits:
             abstain_reason = "no_results"
+        elif retrieval.reranked and hits[0].score < threshold:
+            abstain_reason = "low_relevance"
 
         if abstain_reason:
             answer, citations, abstained = IDK, [], True
