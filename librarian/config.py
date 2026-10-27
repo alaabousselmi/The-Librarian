@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     # --- Corpus ---
     github_token: str = ""
     fastapi_repo: str = "fastapi/fastapi"
-    fastapi_ref: str = "master"
+    fastapi_ref: str = "0.162.0"  # pinned release: reproducible corpus
     max_discussions: int = 2000
     max_issues: int = 400
     only_answered_discussions: bool = True
