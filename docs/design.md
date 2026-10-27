@@ -82,18 +82,28 @@ Embeddings: `BAAI/bge-small-en-v1.5` (384-d) via fastembed/ONNX: free, CPU-fast,
 * Citations are parsed and **validated**: numbers that do not correspond to a retrieved chunk are
   dropped and counted (`invalid_citations`).
 
-## 6b. First measurements (Week 1, 20 seed questions — too few to conclude)
+## 6b. Retrieval measurements (Week 2, 104 answerable questions, full corpus)
 
-| Config | recall@5 | MRR@10 | search p50 |
-|---|---|---|---|
-| BM25 only | 0.80 | 0.71 | 25 ms |
-| Dense only | 0.90 | 0.75 | 11 ms |
-| Hybrid (RRF) | 0.90 | 0.75 | 48 ms |
-| Hybrid + reranker | 0.875 | 0.74 | 880 ms |
+| Config | recall@1 | recall@5 | recall@10 | MRR@10 | search p50 / p95 |
+|---|---|---|---|---|---|
+| BM25 only | 0.45 | 0.66 | 0.78 | 0.57 | 4 / 6 ms |
+| Dense only | 0.33 | 0.59 | 0.71 | 0.47 | 11 / 15 ms |
+| Hybrid (RRF) | 0.48 | 0.70 | 0.80 | 0.59 | 15 / 18 ms |
+| Hybrid + reranker | 0.45 | **0.76** | 0.80 | 0.59 | 1 491 / 1 884 ms |
+| Hybrid + reranker + rewrite | 0.44 | 0.75 | 0.80 | 0.58 | 1 670 / 2 387 ms |
 
-The reranker adds ~0.85 s on a laptop CPU and does not help yet on easy seed questions — to
-re-measure on the full 120-question set before deciding; prime Week 3 lever (fewer candidates,
-skip when first stage is confident).
+* **Hybrid beats either retriever alone** (+4 points recall@5 over BM25, +11 over dense). BM25 is the
+  stronger single retriever here: questions quote identifiers (`dependency_overrides`, `use_cache`,
+  `--forwarded-allow-ips`) that dense embeddings blur.
+* **The reranker adds +5 points recall@5** but costs ~1.5 s of CPU per query on a laptop: it is the
+  dominant search-side latency and the first Week 3 lever (fewer candidates).
+* **Rewriting does not help retrieval on this set** (-0.5 points): it fires on few questions (short or
+  multi-part) and costs an extra LLM call. Kept in `auto` mode for multi-part questions, where it splits
+  the reranking (failure case 8), not for recall.
+* Week 1 seed numbers (20 docs-only questions, recall@5 0.90) were far too optimistic: the harder,
+  community-sourced questions and a 13× larger corpus bring recall@5 to 0.76.
+
+Source: `python eval/ablation.py --rewrite` → [`eval/results/ablation.md`](../eval/results/ablation.md).
 
 ## 7. Evaluation design
 
