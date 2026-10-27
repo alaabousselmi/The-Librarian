@@ -45,7 +45,28 @@ test, not a default):
   keep their context.
 * **fixed**: sliding window of N tokens — the naive baseline.
 
-Week 2 grid: strategy × size {200, 400, 800} × overlap {0, 60}, chosen on recall@5.
+**Week 2 experiment** (`eval/chunking_eval.py`, docs subset, 62 answerable docs questions; full table in
+[`eval/results/chunking.md`](../eval/results/chunking.md)). Re-embedding the full corpus takes ~17 min per
+variant, so the grid runs on the 146 docs pages:
+
+| Chunking | chunks | mean tokens | recall@5 (hybrid + rerank) | MRR@10 | recall@1 |
+|---|---|---|---|---|---|
+| markdown 200 / 60 | 3 437 | 134 | 0.93 | 0.78 | 0.64 |
+| **markdown 400 / 60** (kept) | 2 325 | 193 | 0.93 | 0.76 | 0.61 |
+| markdown 800 / 60 | 1 984 | 224 | 0.94 | 0.79 | 0.66 |
+| markdown 400 / 0 | 2 320 | 192 | 0.93 | 0.77 | 0.63 |
+| fixed 400 / 60 | 1 392 | 380 | 0.91 | 0.83 | 0.75 |
+
+* **Size and overlap barely matter** on this set: recall@5 spans 0.91–0.94, i.e. one question
+  (1 question = 1.6 points). Overlap 0 vs 60 is identical: the markdown chunker already cuts at headings,
+  so a passage rarely straddles two chunks.
+* **Fixed windows rank the gold chunk first more often** (MRR 0.83) because each chunk is twice as long,
+  and our hit criterion (chunk contains ≥ 60% of the gold passage) rewards long chunks. They would also
+  double the tokens sent to the generator (top-6 × 380 vs × 193) and lose code-fence integrity and
+  deep-link anchors.
+* Markdown sections are short: even with an 800-token budget the mean chunk is 224 tokens.
+* **Decision: keep markdown 400 / 60.** Same recall as the alternatives, half the prompt tokens of fixed
+  windows, whole code blocks and citable anchors.
 
 ## 4. Index choice: Qdrant
 

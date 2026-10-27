@@ -36,6 +36,7 @@ def index(
     size: int = typer.Option(None, help="chunk size in tokens"),
     overlap: int = typer.Option(None, help="chunk overlap in tokens"),
     collection: str = typer.Option(None, help="target collection (default COLLECTION)"),
+    sources: str = typer.Option(None, help="only these source types, e.g. docs or docs,discussion"),
 ):
     """Chunk documents, embed them and (re)build a Qdrant collection."""
     from librarian.chunking import chunk_documents
@@ -44,8 +45,13 @@ def index(
     from librarian.store import Store
 
     s = get_settings()
-    strategy, size, overlap = strategy or s.chunk_strategy, size or s.chunk_size, overlap or s.chunk_overlap
+    # `is None`, not `or`: --overlap 0 is a real experiment, not "use the default"
+    strategy = strategy or s.chunk_strategy
+    size = s.chunk_size if size is None else size
+    overlap = s.chunk_overlap if overlap is None else overlap
     docs = load_documents(s.processed_dir / "documents.jsonl")
+    if sources:
+        docs = [d for d in docs if d.source_type in sources.split(",")]
     chunks = chunk_documents(docs, strategy, size, overlap)
     name = collection or s.collection
     write_jsonl(s.processed_dir / f"chunks_{name}.jsonl", chunks)
@@ -65,7 +71,7 @@ def index(
 def build(github: bool = True):
     """One-shot setup: ingest the corpus, then build the default index."""
     ingest(docs=True, github=github)
-    index(strategy=None, size=None, overlap=None, collection=None)
+    index(strategy=None, size=None, overlap=None, collection=None, sources=None)
 
 
 @app.command()
