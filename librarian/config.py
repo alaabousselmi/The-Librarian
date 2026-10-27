@@ -91,8 +91,9 @@ class Settings(BaseSettings):
     rerank_candidates: int = 20
     top_k: int = 6  # chunks sent to the generator
     # Below this cross-encoder logit for the best chunk we answer "I don't know"
-    # without calling the LLM. Calibrate on the unanswerable eval questions.
-    abstain_threshold: float = -6.0
+    # without calling the LLM. Calibrated by eval/calibrate_abstain.py: -0.5 catches 13/16
+    # unanswerable questions and refuses 0/104 answerable ones (lowest answerable: 0.96).
+    abstain_threshold: float = -0.5
 
     # --- Query rewriting ---
     rewrite_mode: Literal["auto", "always", "never"] = "auto"

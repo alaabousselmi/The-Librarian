@@ -68,7 +68,10 @@ Embeddings: `BAAI/bge-small-en-v1.5` (384-d) via fastembed/ONNX: free, CPU-fast,
 3. **Cross-encoder rerank** (`ms-marco-MiniLM-L-6-v2`) of the top 20 against the *original* question;
    keep top 6.
 4. If the best rerank logit < `ABSTAIN_THRESHOLD` → "I don't know" **without calling the LLM**
-   (saves cost, avoids hallucinating on out-of-scope questions). Threshold calibrated in Week 2.
+   (saves cost, avoids hallucinating on out-of-scope questions). Calibrated on the 120-question set
+   (`eval/calibrate_abstain.py`): **-0.5** stops 13 of 16 unanswerable questions before the LLM and
+   refuses none of the 104 answerable ones; the old -6.0 stopped only 5. Full sweep:
+   [`eval/results/abstain_calibration.md`](../eval/results/abstain_calibration.md).
 
 ## 6. Generation
 
