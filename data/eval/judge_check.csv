@@ -1,0 +1,1100 @@
+id,question,reference_answer,assistant_answer,cited_sources,human_correctness,notes,judge_correctness
+q048,How do I serve a folder of static files? And how do I render Jinja2 templates?,"Mount StaticFiles (app.mount('/static', StaticFiles(directory='static'))); for templates create Jinja2Templates(directory='templates') and return templates.TemplateResponse(...).","**Serve a folder of static files**
+
+```python
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+app.mount(""/static"", StaticFiles(directory=""static""))
+```
+
+The `StaticFiles` class is an ASGI app that you mount on a path (e.g., “/static”) to serve files from the given directory [1][4].
+
+**Render Jinja2 templates**
+
+```python
+from fastapi import FastAPI, Request
+from fastapi.templating import Jinja2Templates
+
+app = FastAPI()
+templates = Jinja2Templates(directory=""templates"")
+
+@app.get(""/items/{id}"")
+async def read_item(request: Request, id: int):
+    return templates.TemplateResponse(""item.html"", {""request"": request, ""id"": id})
+```
+
+FastAPI (via Starlette) provides utilities such as `Jinja2Templates` to configure and render Jinja2 templates [5].","[1] Static Files - `StaticFiles`
+# Static Files - `StaticFiles`
+
+You can use the `StaticFiles` class to serve static files, like JavaScript, CSS, images, etc.
+
+Read more about it in the [FastAPI docs for Static Files](https://fastapi.tiangolo.com/tutorial/static-files/).
+
+You can import it directly from `fastapi.staticfiles`:
+
+```python
+from fastapi.staticfiles import StaticFiles
+```
+
+[4] How can I serve static files (html, js) easily?
+## Comment (by a community)
+
+Thanks for the responses @euri10  and @tiangolo. I was attaching the StaticFiles instance to the FastAPI() app incorrectly because I thought StaticFiles was a route but it's more of an ASGI app. For anyone else trying to do the same, you can do something like:
+
+```
+api = FastAPI(title=config.API_PROJECT_NAME, openapi_url=""/api/v1/openapi.json"")
+api.mount(""/static"", StaticFiles(directory=""static""))
+```
+
+[5] Templates
+# Templates
+
+You can use any template engine you want with **FastAPI**.
+
+A common choice is Jinja2, the same one used by Flask and other tools.
+
+There are utilities to configure it easily that you can use directly in your **FastAPI** application (provided by Starlette).",,,1
+q020,"I have a single Pydantic body parameter but the client sends it wrapped in a key like {""item"": {...}}. How do I accept that?","Use Body(embed=True) on the parameter, e.g. item: Annotated[Item, Body(embed=True)].","Use **`Body(..., embed=True)`** (or the newer `Annotated` form) for the parameter.
+
+```python
+from typing import Annotated
+from fastapi import Body, FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float | None = None
+
+@app.put(""/items/{item_id}"")
+async def update_item(
+    item_id: int,
+    item: Annotated[Item, Body(embed=True)],   # <‑‑ embed the single body
+):
+    return {""item_id"": item_id, ""item"": item}
+```
+
+With `embed=True`, FastAPI expects the request body to be wrapped in a key named after the parameter (`""item""`), e.g.:
+
+```json
+{
+  ""item"": {
+    ""name"": ""Foo"",
+    ""description"": ""The pretender"",
+    ""price"": 42.0,
+    ""tax"": 3.2
+  }
+}
+```
+
+instead of the plain model JSON.  
+
+This behavior is described in the FastAPI documentation under **“Embed a single body parameter.”**[1]","[1] Body - Multiple Parameters
+## Embed a single body parameter
+
+Let's say you only have a single `item` body parameter from a Pydantic model `Item`.
+
+By default, **FastAPI** will then expect its body directly.
+
+But if you want it to expect a JSON with a key `item` and inside of it the model contents, as it does when you declare extra body parameters, you can use the special `Body` parameter `embed`:
+
+```Python
+item: Annotated[Item, Body(embed=True)]
+```
+
+as in:
+
+```python
+from typing import Annotated
+
+from fastapi import Body, FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float | None = None
+
+@app.put(""/items/{item_id}"")
+async def update_item(item_id: int, item: Annotated[Item, Body(embed=True)]):
+    results = {""item_id"": item_id, ""item"": item}
+    return results
+```
+
+In this case **FastAPI** will expect a body like:
+
+```JSON hl_lines=""2""
+{
+    ""item"": {
+        ""name"": ""Foo"",
+        ""description"": ""The pretender"",
+        ""price"": 42.0,
+        ""tax"": 3.2
+    }
+}
+```
+
+instead of:
+
+```JSON
+{
+    ""name"": ""Foo"",
+    ""description"": ""The pretender"",
+    ""price"": 42.0,
+    ""tax"": 3.2
+}
+```",,,1
+q065,How do I silence the INFO log line Uvicorn prints for every request?,"Raise Uvicorn's log level, e.g. uvicorn --log-level warning.","**Answer**
+
+Run Uvicorn with a higher log level (e.g., `warning`) so that the default INFO‑level access log for each request is not emitted.
+
+```bash
+uvicorn main:app --log-level warning   # or --log-level error, critical, etc.
+```
+
+**Details**
+
+The INFO line that Uvicorn prints for every request (the access log) is produced at the `INFO` log level. By starting Uvicorn with `--log-level warning` (or any level above INFO), those INFO messages are suppressed [3].","[3] how can we disable certain INFO logs on api call ?
+## Accepted answer (by a maintainer)
+
+`uvicorn --log-level warning` or something like that...",,,1
+q103,"Why am I getting an error when using typing.Optional[starlette.requests.Request] as a type annotation for a dependency, and what is the correct way to import and use the Request object?",You should import Request directly from FastAPI (from fastapi import Request) and use it directly in the dependency signature (request: Request) instead of using the Starlette Request class with typing.Optional.,"**Answer**
+
+You get the *“Invalid args for response field!”* error because the dependency is annotated with the wrong `Request` type – you imported the Starlette class and wrapped it in `typing.Optional`. FastAPI expects the request object that it provides, which is re‑exported from FastAPI itself.
+
+**Correct usage**
+
+```python
+from fastapi import Request, Depends
+
+async def my_dependency(request: Request):
+    # use request here
+    ...
+```
+
+Do **not** use:
+
+```python
+import typing
+from starlette.requests import Request   # ← wrong import
+async def my_dependency(request: typing.Optional[starlette.requests.Request]):
+    ...
+```
+
+Import `Request` directly from **fastapi** and annotate the parameter simply as `request: Request` (no `Optional`). This resolves the “Invalid args for response field!” error.  
+
+*Source: the accepted answer explains that the problem is importing the wrong `Request` object and using `typing.Optional[starlette.requests.Request]` instead of `fastapi.Request`*[1].","[1] FastAPIError:  Invalid args for response field! When using dependencies
+## Accepted answer (by a community)
+
+I managed to replicate your error, the problem is that you are importing the wrong Request object somewhere in your code using ````python typing.Optional[starlette.requests.Request] ```` as a python annotation would be good that you import your Request dependency directly from FastAPI ````python
+from fastapi import Request ```` and in the dependency you directly use ````python
+request: Request ```` and not ````python request: typing.Optional[starlette.requests.Request] ````
+I hope that helps",,,1
+q007,How should I run startup and shutdown logic now that on_event is not the recommended way?,"Use the lifespan parameter of the FastAPI app with an async context manager (an async function with yield): code before yield runs at startup, after yield at shutdown.","**Use the `lifespan` parameter of the `FastAPI` app.**  
+
+The documentation states that the recommended way to run startup‑ and shutdown‑related code is to provide a `lifespan` callable when creating the `FastAPI` instance; when a `lifespan` is supplied, the old `@app.on_event(""startup"")` / `@app.on_event(""shutdown"")` handlers are no longer called — you must choose one approach or the other [1].  
+
+Because the older event‑handler style is now deprecated, the docs advise using `lifespan` instead of defining separate `startup` and `shutdown` functions, especially when the two pieces of logic are related [2].  
+
+A discussion also confirms that `@app.on_event()` is deprecated and that the recommended approach is to use `lifespan` [4].  
+
+```python
+from fastapi import FastAPI
+
+async def lifespan(app: FastAPI):
+    # startup logic
+    await init_resources()
+    yield
+    # shutdown logic
+    await close_resources()
+
+app = FastAPI(lifespan=lifespan)
+```
+
+So, replace `@app.on_event(""startup"")` / `@app.on_event(""shutdown"")` with a `lifespan` function passed to `FastAPI`.","[1] Lifespan Events
+## Alternative Events (deprecated)
+
+**Warning:**
+
+The recommended way to handle the *startup* and *shutdown* is using the `lifespan` parameter of the `FastAPI` app as described above. If you provide a `lifespan` parameter, `startup` and `shutdown` event handlers will no longer be called. It's all `lifespan` or all events, not both.
+
+You can probably skip this part.
+
+There's an alternative way to define this logic to be executed during *startup* and during *shutdown*.
+
+You can define event handlers (functions) that need to be executed before the application starts up, or when the application is shutting down.
+
+These functions can be declared with `async def` or normal `def`.
+
+[2] Lifespan Events
+### `startup` and `shutdown` together
+
+There's a high chance that the logic for your *startup* and *shutdown* is connected, you might want to start something and then finish it, acquire a resource and then release it, etc.
+
+Doing that in separate functions that don't share logic or variables together is more difficult as you would need to store values in global variables or similar tricks.
+
+Because of that, it's now recommended to instead use the `lifespan` as explained above.
+
+[4] Is there a way to test if a startup event has been registered?
+## Reply (by a contributor)
+
+What about doing it in a slightly different way?
+
+```
+    @app.on_event(""startup"")
+    async def action01_on_startup():
+        if os.getenv(""APP_REGISTER_SOME_STARTUP_EVENT"") in (""true"", ""1""):
+            # do something
+```
+
+1) Actually, @app.on_event(""startup"") is not registering events, it declares a sequence of action that needs to be executed on startup
+2) @app.on_event() functionality is deprecated, and the recommended approach is to use [lifespan](https://fastapi.tiangolo.com/advanced/events/#lifespan) instead. 
+3) All this stuff is coming from `uvicorn`",,,1
+q010,How do I split my app's routes across multiple files?,Use APIRouter in each module (a 'mini FastAPI') and include the routers in the main app.,"**Answer**
+
+Create a *routers* package (a directory with an `__init__.py`) and put a separate file for each group of routes. In each file define an `APIRouter` instance and add the path operations to it. Then import those router objects in your main application file and include them with `app.include_router()`.
+
+```python
+# routers/users.py
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get(""/users/"")
+def read_users():
+    return [{""username"": ""alice""}, {""username"": ""bob""}]
+```
+
+```python
+# routers/items.py
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get(""/items/"")
+def read_items():
+    return [{""item_id"": 1}, {""item_id"": 2}]
+```
+
+```python
+# main.py
+from fastapi import FastAPI
+from routers import users, items   # import the router modules
+
+app = FastAPI()
+
+app.include_router(users.router)   # include each router
+app.include_router(items.router)
+```
+
+**Details**
+
+- The FastAPI docs (bigger‑projects section) recommend creating a *routers* directory and declaring module files that each contain an `APIRouter` instance, then importing those routers in the main file [2][4].  
+- A contributor confirms this approach: “Create a router package and within it create your multiple router files… You can then include the routers in the main entry file.” [1]  
+- The same pattern is described by other commenters: define a router in one file, import it elsewhere, and add methods on it [5][3].  
+
+Thus, splitting routes across multiple files is done by defining separate `APIRouter` objects in separate modules and including them in the main `FastAPI` app.","[1] Split router across multiple files
+## Comment (by a contributor)
+
+Create a router package and within it create your multiple router files with the directory. 
+You can then include the routers in the main entry file.
+
+[2] Split router across multiple files
+## Comment (by a community)
+
+> > > This is actually mentioned in the [docs](https://fastapi.tiangolo.com/tutorial/bigger-applications/#import-apirouter) in the `bigger projects` section. There you will also find an example on how to implement this.
+> > 
+> > 
+> > I cannot find an example of this on the page @rohansaw linked. All the routers there are defined only within one file.
+> 
+> What you do is to create a routers directory and within it declare module files and in this module files, you create instances of APIRouter and use in the same way you would use instances of FastAPI if you were working with just one main.py file.
+> 
+> Now you can import the routers you created in the main file. Start reading from here: https://fastapi.tiangolo.com/tutorial/bigger-applications/#the-main-fastapi
+
+@aitoehigie You just explained how to split an application into multiple routers. You have not mentioned how to define a router over multiple files.
+
+[3] Split router across multiple files
+## Comment (by a community)
+
+> Create router at file a, import it from b, write methods on it.
+
+@ycd  That's an interesting concept! How would you make use of this file b? I would import the router from file a in main. Do I have to import file b (and file c, ...) too? What would you import from it?
+
+[4] Split router across multiple files
+## Comment (by a contributor)
+
+> > This is actually mentioned in the [docs](https://fastapi.tiangolo.com/tutorial/bigger-applications/#import-apirouter) in the `bigger projects` section. There you will also find an example on how to implement this.
+> 
+> I cannot find an example of this on the page @rohansaw linked. All the routers there are defined only within one file.
+
+What you do is to create a routers directory and within it declare module files and in this module files, you create instances of APIRouter and use in the same way you would use instances of FastAPI if you were working with just one main.py file.
+
+Now you can import the routers you created in the main file. Start reading from here: https://fastapi.tiangolo.com/tutorial/bigger-applications/#the-main-fastapi
+
+[5] Split router across multiple files
+## Comment (by a contributor)
+
+Create router at file a, import it from b, write methods on it.",,,1
+q087,How can I add custom headers to a JSON response in FastAPI?,You can return a JSONResponse object directly and pass the headers as a dictionary to the headers parameter.,"**Answer**
+
+You add custom headers by returning a response object (e.g., `JSONResponse`) and passing a `headers` dictionary to it.
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+@app.get(""/custom-headers/"")
+def custom_headers():
+    content = {""message"": ""Hello World""}
+    headers = {
+        ""X-Cat-Dog"": ""alone in the world"",
+        ""Content-Language"": ""en-US"",
+    }
+    return JSONResponse(content=content, headers=headers)
+```
+
+The `headers` argument is a plain `dict` where each key is the header name and each value is the header value. FastAPI (via Starlette) will include these headers in the HTTP response.  
+
+*Source:* The method is described in the FastAPI documentation under “Return a `Response` directly”[2].","[2] Response Headers
+## Return a `Response` directly
+
+You can also add headers when you return a `Response` directly.
+
+Create a response as described in [Return a Response Directly](response-directly.md) and pass the headers as an additional parameter:
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+@app.get(""/headers/"")
+def get_headers():
+    content = {""message"": ""Hello World""}
+    headers = {""X-Cat-Dog"": ""alone in the world"", ""Content-Language"": ""en-US""}
+    return JSONResponse(content=content, headers=headers)
+```
+
+**Note: Technical Details**
+
+You could also use `from starlette.responses import Response` or `from starlette.responses import JSONResponse`.
+
+**FastAPI** provides the same `starlette.responses` as `fastapi.responses` just as a convenience for you, the developer. But most of the available responses come directly from Starlette.
+
+And as the `Response` can be used frequently to set headers and cookies, **FastAPI** also provides it at `fastapi.Response`.",,,1
+q013,Which libraries does the OAuth2 JWT tutorial use for tokens and for password hashing?,"PyJWT to generate and verify JWT tokens, and pwdlib (with Argon2) for password hashing.","The tutorial uses **PyJWT** to create and verify the JWT tokens [6], and it uses **pwdlib** as the password‑hashing library (with a note that you could also use passlib for legacy hashes) [1].","[1] OAuth2 with Password (and hashing), Bearer with JWT tokens
+## Hash and verify the passwords
+
+Import the tools we need from `pwdlib`.
+
+Create a PasswordHash instance with recommended settings - it will be used for hashing and verifying passwords.
+
+**Tip:**
+
+pwdlib also supports the bcrypt hashing algorithm but does not include legacy algorithms - for working with outdated hashes, it is recommended to use the passlib library.
+
+For example, you could use it to read and verify passwords generated by another system (like Django) but hash any new passwords with a different algorithm like Argon2 or Bcrypt.
+
+And be compatible with all of them at the same time.
+
+Create a utility function to hash a password coming from the user.
+
+And another utility to verify if a received password matches the hash stored.
+
+And another one to authenticate and return a user.
+
+[6] OAuth2 with Password (and hashing), Bearer with JWT tokens
+## Install `PyJWT`
+
+We need to install `PyJWT` to generate and verify the JWT tokens in Python.
+
+Add `pyjwt` to your project:
+
+```console
+$ uv add pyjwt
+
+---> 100%
+```
+
+**Note:**
+
+If you are planning to use digital signature algorithms like RSA or ECDSA, you should install the cryptography library dependency `pyjwt[crypto]`.
+
+You can read more about it in the [PyJWT Installation docs](https://pyjwt.readthedocs.io/en/latest/installation.html).",,,1
+q061,"Is there a command that scaffolds a new FastAPI project, like create-react-app?","No official one: there is no single right structure. Use a project template (e.g. the full-stack FastAPI template) or fastapi-new, which is not exactly that.","**No, FastAPI does not provide an official CLI command that scaffolds a new project the way `create‑react‑app` does.**  
+
+The FastAPI maintainers state that there is no single “right” file structure and that you need to pick or create a project template yourself. They point to community resources such as the `fastapi-new` repository, which offers a starter template, but it is not a built‑in command‑line tool[2].  
+
+If you want a quick start, you can use third‑party templates (e.g., via `npx degit` as shown in a community reply), but these are not part of FastAPI itself[3].","[2] Is there any command for creating fastapi app?
+## Accepted answer (by a maintainer)
+
+There is no one ""right"" file structure.
+You can search for existing FastAPI project templates or create your own.
+
+There is also https://github.com/fastapi/fastapi-new but it's not exactly what you are looking for
+
+[3] Is there any command for creating fastapi app?
+## Reply (by a community)
+
+Just adding a workaround. Make sure npx is installed and then
+
+``` shell
+echo ""alias create-fastapi-app='npx degit fastapi/full-stack-fastapi-template/backend#master'"" >> ~/.zshrc
+
+cd /path/to/empty-dir
+create-fastapi-app
+```
+
+This should give you the boilerplate application on top of which you can modify.",,,1
+q093,How can I add a custom logo to the OpenAPI schema in FastAPI?,You can modify the generated OpenAPI schema dictionary by adding a key like 'x-logo' to the 'info' section within a custom function that overrides the default openapi generation.,"**Add a custom logo by overriding the OpenAPI generation and inserting an `x‑logo` field in the `info` object.**
+
+```python
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+
+app = FastAPI()
+
+@app.get(""/items/"")
+async def read_items():
+    return [{""name"": ""Foo""}]
+
+def custom_openapi():
+    # reuse the cached schema if it already exists
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    # generate the base OpenAPI schema
+    openapi_schema = get_openapi(
+        title=""Custom title"",
+        version=""2.5.0"",
+        summary=""This is a very custom OpenAPI schema"",
+        description=""Here's a longer description of the custom **OpenAPI** schema"",
+        routes=app.routes,
+    )
+
+    # add the custom logo (ReDoc extension)
+    openapi_schema[""info""][""x-logo""] = {
+        ""url"": ""https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png""
+    }
+
+    # cache the schema for future requests
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+# tell FastAPI to use the custom function
+app.openapi = custom_openapi
+```
+
+- The `custom_openapi` function calls `get_openapi` to create the schema, then adds `openapi_schema[""info""][""x‑logo""]` with the logo URL [1][4].  
+- Assigning `app.openapi = custom_openapi` makes FastAPI use this overridden schema [1][4].  
+- Storing the result in `app.openapi_schema` caches it so the schema is generated only once [3].","[1] Extending OpenAPI
+### Modify the OpenAPI schema
+
+Now you can add the ReDoc extension, adding a custom `x-logo` to the `info` ""object"" in the OpenAPI schema:
+
+```python
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+
+app = FastAPI()
+
+@app.get(""/items/"")
+async def read_items():
+    return [{""name"": ""Foo""}]
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=""Custom title"",
+        version=""2.5.0"",
+        summary=""This is a very custom OpenAPI schema"",
+        description=""Here's a longer description of the custom **OpenAPI** schema"",
+        routes=app.routes,
+    )
+    openapi_schema[""info""][""x-logo""] = {
+        ""url"": ""https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png""
+    }
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+```
+
+[3] Extending OpenAPI
+### Cache the OpenAPI schema
+
+You can use the property `.openapi_schema` as a ""cache"", to store your generated schema.
+
+That way, your application won't have to generate the schema every time a user opens your API docs.
+
+It will be generated only once, and then the same cached schema will be used for the next requests.
+
+```python
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+
+app = FastAPI()
+
+@app.get(""/items/"")
+async def read_items():
+    return [{""name"": ""Foo""}]
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=""Custom title"",
+        version=""2.5.0"",
+        summary=""This is a very custom OpenAPI schema"",
+        description=""Here's a longer description of the custom **OpenAPI** schema"",
+        routes=app.routes,
+    )
+    openapi_schema[""info""][""x-logo""] = {
+        ""url"": ""https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png""
+    }
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+```
+
+[4] Extending OpenAPI
+### Generate the OpenAPI schema
+
+Then, use the same utility function to generate the OpenAPI schema, inside a `custom_openapi()` function:
+
+```python
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+
+app = FastAPI()
+
+@app.get(""/items/"")
+async def read_items():
+    return [{""name"": ""Foo""}]
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title=""Custom title"",
+        version=""2.5.0"",
+        summary=""This is a very custom OpenAPI schema"",
+        description=""Here's a longer description of the custom **OpenAPI** schema"",
+        routes=app.routes,
+    )
+    openapi_schema[""info""][""x-logo""] = {
+        ""url"": ""https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png""
+    }
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+```",,,1
+q008,What package does TestClient need?,httpx must be installed to use TestClient.,"**TestClient requires the `httpx` package** to be installed [2].  
+
+The FastAPI documentation notes that, starting with the Starlette upgrade in FastAPI 0.87.0, the `TestClient` is based on HTTPX [5].  
+
+So, to use `fastapi.testclient.TestClient`, install `httpx` (e.g., `pip install httpx`).","[2] Importing the testclient in fastapi==0.112.0 throws the error: ModuleNotFoundError: No module named 'httpx'
+### Description
+
+Example using `fastapi==0.112.0`
+
+```python
+from fastapi.testclient import TestClient 
+```
+
+Result:
+
+```
+Traceback (most recent call last):
+  File ""/opt/homebrew/Caskroom/miniconda/base/envs/py310/lib/python3.10/site-packages/starlette/testclient.py"", line 33, in <module>
+    import httpx
+ModuleNotFoundError: No module named 'httpx'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File ""<stdin>"", line 1, in <module>
+  File ""/opt/homebrew/Caskroom/miniconda/base/envs/py310/lib/python3.10/site-packages/fastapi/testclient.py"", line 1, in <module>
+    from starlette.testclient import TestClient as TestClient  # noqa
+  File ""/opt/homebrew/Caskroom/miniconda/base/envs/py310/lib/python3.10/site-packages/starlette/testclient.py"", line 35, in <module>
+    raise RuntimeError(
+RuntimeError: The starlette.testclient module requires the httpx package to be installed.
+You can install this with:
+    $ pip install httpx
+```
+
+This import works on version 0.111.1
+
+[5] Release Notes
+## 0.87.0 (2022-11-13)
+
+Highlights of this release:
+
+* [Upgraded Starlette](https://github.com/encode/starlette/releases/tag/0.21.0)
+    * Now the `TestClient` is based on HTTPX instead of Requests. 🚀
+    * There are some possible **breaking changes** in the `TestClient` usage, but [@Kludex](https://github.com/Kludex) built [bump-testclient](https://github.com/Kludex/bump-testclient) to help you automatize migrating your tests. Make sure you are using Git and that you can undo any unnecessary changes (false positive changes, etc) before using `bump-testclient`.
+* New [WebSocketException (and docs)](https://fastapi.tiangolo.com/advanced/websockets/#using-depends-and-others), re-exported from Starlette.
+* Upgraded and relaxed dependencies for package extras `all` (including new Uvicorn version), when you install `""fastapi[all]""`.
+* New docs about how to [**Help Maintain FastAPI**](https://fastapi.tiangolo.com/help-fastapi/#help-maintain-fastapi).",,,1
+q083,How can I prevent FastAPI from adding duplicate telemetry exporters if another library is already configured to send data to the same OTLP endpoint?,You should leave the FASTAPI_OTEL_AUTO_CONFIGURE environment variable unset or set it to false.,"**Answer**
+
+FastAPI’s automatic OTLP exporter can be disabled process‑wide by setting the OpenTelemetry environment variables for each signal to `none`:
+
+```bash
+OTEL_TRACES_EXPORTER=none OTEL_METRICS_EXPORTER=none OTEL_LOGS_EXPORTER=none
+```
+
+When these variables are present FastAPI skips adding its own exporter for the corresponding signal, leaving any exporters that another library has already configured untouched. This works without touching any `FastAPI()` constructors.
+
+Alternatively, you can keep the automatic setup disabled per‑app (or globally) by ensuring the FastAPI auto‑configure flag is false:
+
+* Do **not** set `FASTAPI_OTEL_AUTO_CONFIGURE` (or set it to `false`).  
+* Starting with FastAPI 0.143.0 the exporter configuration is opt‑in, so it will only be added if `auto_configure` is true or `FASTAPI_OTEL_AUTO_CONFIGURE=true` [3].
+
+**Details**
+
+* The documentation states that if another library already configures export, you should leave `FASTAPI_OTEL_AUTO_CONFIGURE` unset or set it to `false` to avoid duplicate telemetry [2].  
+* A maintainer’s accepted answer confirms that, from version 0.143.0, exporters are no longer added automatically; they must be enabled via `auto_configure` or the env var `FASTAPI_OTEL_AUTO_CONFIGURE=true` [3].  
+* A community reply explains that setting `OTEL_{signal}_EXPORTER=none` (e.g., `OTEL_TRACES_EXPORTER=none`) makes FastAPI skip the automatic exporter for that signal, and this is verified by tests [4].  
+
+Thus, to prevent duplicate exporters, either:
+
+1. **Set the three `OTEL_*_EXPORTER=none` variables** (process‑wide opt‑out), or  
+2. **Ensure `FASTAPI_OTEL_AUTO_CONFIGURE` is unset/false** (default after 0.143.0).  
+
+Both approaches stop FastAPI from adding its own OTLP exporters when another library already handles export.","[2] OpenTelemetry
+## Customize telemetry
+
+### Configure providers and exporters
+
+A **provider** supplies the objects that record traces, metrics, or logs. Its configuration controls how that data is processed and exported.
+
+Telemetry libraries can configure OpenTelemetry's global providers. Configure the library before the app starts, and FastAPI uses those providers automatically.
+
+By default, FastAPI uses configured providers without adding exporters. When automatic setup is enabled and an OTLP endpoint is set in the environment, FastAPI adds an exporter for that destination to each enabled provider. Existing exporters continue sending data to their destinations.
+
+If another library already configures export to the same destination, leave `FASTAPI_OTEL_AUTO_CONFIGURE` unset or set it to `false` to avoid duplicate telemetry.
+
+You can also pass a provider directly in the `telemetry` dictionary. For example, this provider uses OpenTelemetry's console exporter to print request spans in your terminal:
+
+```python
+from fastapi import FastAPI
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
+tracer_provider = TracerProvider()
+tracer_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+
+app = FastAPI(telemetry={""tracer_provider"": tracer_provider})
+
+@app.get(""/items/{item_id}"")
+async def read_item(item_id: int):
+    return {""item_id"": item_id}
+```
+
+The **exporter** sends the spans to their destination. `BatchSpanProcessor` groups spans and sends them in the background. Replace the console exporter with one supplied by your monitoring library to use its destination. See [OpenTelemetry's Python instrumentation guide](https://opentelemetry.io/docs/languages/python/instrumentation/) for more configuration options.
+
+[3] Telemetry: supported way to turn off automatic OTLP export for a whole process when another library already exports
+## Accepted answer (by a maintainer)
+
+Thank you for the report and the clear explanation @ananthsub ! :raised_hands:
+
+I fixed/refactored it here: https://github.com/fastapi/fastapi/pull/16476
+
+Now exporters are not automatically configured. So, it is opt-in, not opt-out. It can be enabled with the config `auto_configure` or with the env var `FASTAPI_OTEL_AUTO_CONFIGURE=true`. This is available in FastAPI 0.143.0, just released. :rocket:
+
+[4] Telemetry: supported way to turn off automatic OTLP export for a whole process when another library already exports
+## Reply (by a community)
+
+I checked FastAPI's implementation and tests. In [`_export_endpoint()`](https://github.com/fastapi/fastapi/blob/master/fastapi/telemetry/_runtime.py#L43-L53), `OTEL_{signal}_EXPORTER=none` makes FastAPI skip the automatic exporter for that signal. The [regression test](https://github.com/fastapi/fastapi/blob/master/tests/test_telemetry/test_runtime.py#L249-L265) sets all three `OTEL_*_EXPORTER` variables to `none` while an OTLP endpoint is present and verifies that no implicit export is configured.
+
+So this is supported by FastAPI's current implementation and tests, and it works as a process-wide, per-signal opt-out. It leaves providers and exporters already configured by another library alone. `OTEL_SDK_DISABLED=true` is broader and would disable the SDK for all signals.
+
+The docs currently describe the per-app `telemetry={""auto_configure"": False}` option, but not these environment variables. A short note with the three `none` values could answer this use case directly. Would a docs-only PR be welcome? I saw the contribution guidance to start with a discussion and wait for a team member to invite a PR, so I'll follow that.",,,1
+q033,How do I apply a dependency to every endpoint in my application?,Pass dependencies=[Depends(...)] to the FastAPI() constructor; they are applied to all path operations.,"Add the dependency when you create the **FastAPI** app:
+
+```python
+from fastapi import Depends, FastAPI
+
+async def my_dependency():
+    # … do something …
+    return ...
+
+app = FastAPI(dependencies=[Depends(my_dependency)])   # ← applied to every endpoint
+```
+
+All path‑operation functions in the application will receive (or run) that dependency automatically. This is the official way to apply a dependency globally, as described in the *Global Dependencies* documentation [5].","[5] Global Dependencies
+# Global Dependencies
+
+For some types of applications you might want to add dependencies to the whole application.
+
+Similar to the way you can [add `dependencies` to the *path operation decorators*](dependencies-in-path-operation-decorators.md), you can add them to the `FastAPI` application.
+
+In that case, they will be applied to all the *path operations* in the application:
+
+```python
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, Header, HTTPException
+
+async def verify_token(x_token: Annotated[str, Header()]):
+    if x_token != ""fake-super-secret-token"":
+        raise HTTPException(status_code=400, detail=""X-Token header invalid"")
+
+async def verify_key(x_key: Annotated[str, Header()]):
+    if x_key != ""fake-super-secret-key"":
+        raise HTTPException(status_code=400, detail=""X-Key header invalid"")
+    return x_key
+
+app = FastAPI(dependencies=[Depends(verify_token), Depends(verify_key)])
+
+@app.get(""/items/"")
+async def read_items():
+    return [{""item"": ""Portal Gun""}, {""item"": ""Plumbus""}]
+
+@app.get(""/users/"")
+async def read_users():
+    return [{""username"": ""Rick""}, {""username"": ""Morty""}]
+```
+
+And all the ideas in the section about [adding `dependencies` to the *path operation decorators*](dependencies-in-path-operation-decorators.md) still apply, but in this case, to all of the *path operations* in the app.",,,1
+q005,How do I write a dependency that closes the database session after the request?,Use a dependency with yield instead of return; code after the yield runs as cleanup (yield only once per dependency).,"**Yes – the session is closed automatically after the request finishes.**  
+
+When a dependency is defined with `yield`, FastAPI executes the code **before** the `yield` to create the resource, passes it to the path operation, and then runs the code **after** the `yield` once the response has been sent. In the tutorial’s `get_session()` example:
+
+```python
+def get_session():
+    with Session(engine) as session:
+        yield session          # <-- session is provided to the endpoint
+# after the response FastAPI resumes here,
+# the `with` block exits and the Session is closed automatically
+```
+
+So the `with Session(engine) as session:` block exits after the request, which triggers the context manager’s cleanup and closes the SQLModel/SQLAlchemy session. This behavior is described in the discussion asking to add a note about FastAPI resuming the dependency after the request [1].  
+
+If you need to close the session earlier (e.g., before streaming a response), you can call `session.close()` manually, as shown in the advanced‑dependencies docs [3].","[1] Clarify SQLModel Session cleanup
+# Clarify SQLModel Session cleanup
+
+## Question
+
+In the SQL databases tutorial, `get_session()` uses a dependency with `yield`:
+
+```python
+def get_session():
+    with Session(engine) as session:
+        yield session
+```
+
+The tutorial says this provides one `Session` per request, but it does not explicitly say when the session is closed.
+
+Would it be OK to add a short note saying that FastAPI resumes the dependency after the request, so the `with` block exits and the `Session` is closed automatically?
+
+It could also link to the existing ""Dependencies with yield"" docs for the full explanation.
+
+[3] Advanced Dependencies
+But as `generate_stream()` doesn't use the database session, it is not really necessary to keep the session open while sending the response.
+
+If you have this specific use case using SQLModel (or SQLAlchemy), you could explicitly close the session after you don't need it anymore:
+
+```python
+def get_user(user_id: int, session: Annotated[Session, Depends(get_session)]):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=403, detail=""Not authorized"")
+    session.close()
+```
+
+That way the session would release the database connection, so other requests could use it.
+
+If you have a different use case that needs to exit early from a dependency with `yield`, please create a [GitHub Discussion Question](https://github.com/fastapi/fastapi/discussions/new?category=questions) with your specific use case and why you would benefit from having early closing for dependencies with `yield`.
+
+If there are compelling use cases for early closing in dependencies with `yield`, I would consider adding a new way to opt in to early closing.",,,1
+q012,How do I avoid returning default values that were not actually set in the response?,Set response_model_exclude_unset=True on the path operation decorator.,"**Use the `response_model_exclude_unset=True` (or the related `response_model_exclude_defaults` / `response_model_exclude_none`) option on the path‑operation decorator.**  
+
+When this flag is set, FastAPI (via Pydantic) omits fields whose values were not explicitly provided, so default values that were never set are not included in the JSON response[2].  
+
+**Example**
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float = 10.5
+    tags: list[str] = []
+
+items = {
+    ""foo"": {""name"": ""Foo"", ""price"": 50.2},
+}
+
+@app.get(""/items/{item_id}"",
+         response_model=Item,
+         response_model_exclude_unset=True)   # <‑‑ omit unset defaults
+async def read_item(item_id: str):
+    return items[item_id]
+```
+
+Requesting `/items/foo` returns only the fields that were actually set:
+
+```json
+{
+    ""name"": ""Foo"",
+    ""price"": 50.2
+}
+```
+
+If a field has a value that differs from its default, it will be included (e.g., `tax` set to `20.2`), but fields that retain their default because they were never supplied are omitted[3].  
+
+So, to avoid returning default values that were not set, add `response_model_exclude_unset=True` (or the appropriate exclude flag) to the route decorator.","[2] Response Model - Return Type
+### Use the `response_model_exclude_unset` parameter
+
+You can set the *path operation decorator* parameter `response_model_exclude_unset=True`:
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float = 10.5
+    tags: list[str] = []
+
+items = {
+    ""foo"": {""name"": ""Foo"", ""price"": 50.2},
+    ""bar"": {""name"": ""Bar"", ""description"": ""The bartenders"", ""price"": 62, ""tax"": 20.2},
+    ""baz"": {""name"": ""Baz"", ""description"": None, ""price"": 50.2, ""tax"": 10.5, ""tags"": []},
+}
+
+@app.get(""/items/{item_id}"", response_model=Item, response_model_exclude_unset=True)
+async def read_item(item_id: str):
+    return items[item_id]
+```
+
+and those default values won't be included in the response, only the values actually set.
+
+So, if you send a request to that *path operation* for the item with ID `foo`, the response (not including default values) will be:
+
+```JSON
+{
+    ""name"": ""Foo"",
+    ""price"": 50.2
+}
+```
+
+**Note:**
+
+You can also use:
+
+* `response_model_exclude_defaults=True`
+* `response_model_exclude_none=True`
+
+as described in [the Pydantic docs](https://pydantic.dev/docs/validation/latest/concepts/serialization/#excluding-and-including-fields-based-on-their-value) for `exclude_defaults` and `exclude_none`.
+
+#### Data with values for fields with defaults
+
+But if your data has values for the model's fields with default values, like the item with ID `bar`:
+
+[3] Response Model - Return Type
+But if your data has values for the model's fields with default values, like the item with ID `bar`:
+
+```Python hl_lines=""3  5""
+{
+    ""name"": ""Bar"",
+    ""description"": ""The bartenders"",
+    ""price"": 62,
+    ""tax"": 20.2
+}
+```
+
+they will be included in the response.
+
+#### Data with the same values as the defaults
+
+If the data has the same values as the default ones, like the item with ID `baz`:
+
+```Python hl_lines=""3  5-6""
+{
+    ""name"": ""Baz"",
+    ""description"": None,
+    ""price"": 50.2,
+    ""tax"": 10.5,
+    ""tags"": []
+}
+```
+
+FastAPI is smart enough (actually, Pydantic is smart enough) to realize that, even though `description`, `tax`, and `tags` have the same values as the defaults, they were set explicitly (instead of taken from the defaults).
+
+So, they will be included in the JSON response.
+
+**Tip:**
+
+Notice that the default values can be anything, not only `None`.
+
+They can be a list (`[]`), a `float` of `10.5`, etc.",,,1
+q070,Can one endpoint accept both a JSON body and form data?,Not with the normal declarations: a request has either a JSON body or form data. You can read the Request object directly and parse it by hand.,"**No.**  
+FastAPI cannot handle a single endpoint that expects a JSON body (a Pydantic model) **and** multipart/form‑data (e.g., file uploads) at the same time. A Pydantic model is parsed from `application/json`, while file uploads are parsed from `multipart/form-data`; mixing the two in one request is not supported[3].  
+
+If you need both kinds of data, you must either:
+
+* split the functionality into separate endpoints (one for JSON, one for file/form data), or  
+* send the non‑file fields as form fields (`Form()`) together with the file (`File()`) in a multipart request, and handle them without a Pydantic body model.  
+
+The official FastAPI documentation on file uploads also shows this pattern[3].","[3] Cannot use Body (pydantic schemas)  and file upload together in an API
+## Accepted answer (by a contributor)
+
+Hello @kjathar123,
+
+Your Pydantic model is expecting an application/json while UploadFile multipart/form-data.
+
+Fastapi support multipart/form-data in the following way.
+
+```python
+@app.post(""/"")
+async def example(
+        file: Annotated[UploadFile, File()],
+        name: Annotated[str, Form()],
+        age: Annotated[int, Form()]
+
+):
+    return {""message"": ""Success"", ""filename"": file.filename, ""name"": name, ""age"": age}
+```
+
+Ref to https://fastapi.tiangolo.com/tutorial/request-files/",,,0.5
+q068,"In Swagger UI, my OAuth2 token endpoint does not receive the client credentials as form data. What setting do I change?",In the Swagger authorization form set 'Client credentials location' to 'Request body'; the default is 'Authorization header'.,"**Change the “Client credentials location” to **`Request body`** in the Swagger UI authorization form.**  
+By default the UI sends the `client_id` and `client_secret` in the Authorization header, so the token endpoint never receives them as form data. Selecting **Request body** makes the UI submit those values as form fields, and the endpoint will receive them correctly[1].","[1] OAuth2PasswordBearer swagger UI form not working properly
+## Accepted answer (by a maintainer)
+
+To receive this data as a Form data, you should select `Client credentials location` = `Request body` in the Swagger authorization form.
+By default it's set to `Authorization header`.
+![sw](https://github.com/tiangolo/fastapi/assets/109919500/e38c547d-0cb2-4698-9f28-22adb1b3126e)",,,1
+q009,"If I define my endpoint with plain def instead of async def, does it block the server?","No. A normal def path operation is run in an external threadpool that is awaited, so it does not block the server.","No. When you declare a path‑operation function with a normal `def` (i.e., a regular synchronous function), FastAPI runs it in an external thread‑pool and **awaits** that thread‑pool task. Because the work is off‑loaded to a separate thread, the main event loop is not blocked by the request [1][4].","[1] Concurrency and async / await
+### Path operation functions
+
+When you declare a *path operation function* with normal `def` instead of `async def`, it is run in an external threadpool that is then awaited, instead of being called directly (as it would block the server).
+
+If you are coming from another async framework that does not work in the way described above and you are used to defining trivial compute-only *path operation functions* with plain `def` for a tiny performance gain (about 100 nanoseconds), please note that in **FastAPI** the effect would be quite opposite. In these cases, it's better to use `async def` unless your *path operation functions* use code that performs blocking I/O (Input/Output: disk reading or writing, network communications.).
+
+Still, in both situations, chances are that **FastAPI** will [still be faster](index.md#performance) than (or at least comparable to) your previous framework.
+
+[4] Not able to get desired performance from FastAPI
+## Comment (by a community)
+
+One of the ways to optimize the performance is to replace `def` routes with `async def` since former ones are called in a thread pool, while async routes are called directly.
+
+Check it in [docs](https://fastapi.tiangolo.com/async/#path-operation-functions)
+
+> When you declare a path operation function with normal def instead of async def, it is run in an external threadpool that is then awaited, instead of being called directly (as it would block the server).
+
+> If you are coming from another async framework that does not work in the way described above and you are used to define trivial compute-only path operation functions with plain def for a tiny performance gain (about 100 nanoseconds), please note that in FastAPI the effect would be quite opposite. In these cases, it's better to use async def unless your path operation functions use code that performs blocking I/O.",,,1
+q036,Below which size does GZipMiddleware skip compressing responses by default?,"minimum_size, which defaults to 500 bytes.","By default **responses smaller than 500 bytes are not compressed** – the `minimum_size` argument of `GZipMiddleware` defaults to `500` bytes, and any response below that size is skipped. [1]","[1] Advanced Middleware
+## `GZipMiddleware`
+
+Handles GZip responses for any request that includes `""gzip""` in the `Accept-Encoding` header.
+
+The middleware will handle both standard and streaming responses.
+
+```python
+from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
+
+app = FastAPI()
+
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
+
+@app.get(""/"")
+async def main():
+    return ""somebigcontent""
+```
+
+The following arguments are supported:
+
+* `minimum_size` - Do not GZip responses that are smaller than this minimum size in bytes. Defaults to `500`.
+* `compresslevel` - Used during GZip compression. It is an integer ranging from 1 to 9. Defaults to `9`. Lower value results in faster compression but larger file sizes, while higher value results in slower compression but smaller file sizes.",,,1
+q089,How should a FastAPI dependency handle a JWT token that is missing the 'sub' claim or fails to decode?,It should raise an HTTPException with status code 401 Unauthorized and the detail 'Could not validate credentials'.,"**Answer**
+
+A FastAPI dependency that receives a JWT token should:
+
+1. **Decode the token** with `jwt.decode(...)`.  
+2. **If decoding fails** (e.g., `InvalidTokenError` is raised), raise an `HTTPException` with status `401 UNAUTHORIZED` and a “Could not validate credentials” detail.  
+3. **If the token is decoded but the `sub` claim is missing**, also raise the same `HTTPException`.  
+
+This is exactly how the tutorial’s `get_current_user` dependency is written: it catches any decoding error and checks that `payload.get(""sub"")` is present; otherwise it raises the `credentials_exception` (an `HTTPException` with status 401) [4].","[4] OAuth2 with Password (and hashing), Bearer with JWT tokens
+```python
+app = FastAPI()
+
+def verify_password(plain_password, hashed_password):
+    return password_hash.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return password_hash.hash(password)
+
+def get_user(db, username: str):
+    if username in db:
+        user_dict = db[username]
+        return UserInDB(**user_dict)
+
+def authenticate_user(fake_db, username: str, password: str):
+    user = get_user(fake_db, username)
+    if not user:
+        verify_password(password, DUMMY_HASH)
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({""exp"": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=""Could not validate credentials"",
+        headers={""WWW-Authenticate"": ""Bearer""},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get(""sub"")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except InvalidTokenError:
+        raise credentials_exception
+    user = get_user(fake_users_db, username=token_data.username)
+    if user is None:
+        raise credentials_exception
+    return user
+
+async def get_current_active_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    if current_user.disabled:
+```",,,1

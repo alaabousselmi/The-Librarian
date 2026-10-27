@@ -61,12 +61,15 @@ Return only JSON:
  "claims": [{"claim": "...", "citations": [1], "supported": true}]}"""
 
 
-def judge(judge_llm: LLM, q: dict, result) -> dict:
-    sources = "\n\n".join(f"[{c.n}] {c.title}\n{h.chunk.text}"
-                          for c in result.citations
-                          for h in result.hits if h.chunk.chunk_id == c.chunk_id)
+def cited_sources(result) -> str:
+    return "\n\n".join(f"[{c.n}] {c.title}\n{h.chunk.text}"
+                       for c in result.citations
+                       for h in result.hits if h.chunk.chunk_id == c.chunk_id)
+
+
+def judge(judge_llm: LLM, q: dict, answer: str, sources: str) -> dict:
     user = (f"Question: {q['question']}\n\nReference answer: {q['answer']}\n\n"
-            f"Assistant answer:\n{result.answer}\n\nCited sources:\n{sources or '(none)'}")
+            f"Assistant answer:\n{answer}\n\nCited sources:\n{sources or '(none)'}")
     r = judge_llm.complete([{"role": "system", "content": JUDGE_SYSTEM}, {"role": "user", "content": user}],
                            max_tokens=1200, json_mode=True)
     try:
@@ -101,7 +104,8 @@ def main(name: str = "generation", limit: int = None, verified_only: bool = Fals
             row["correctness"], row["claims"] = 0.0, []
         else:
             judge_pacer.wait()
-            verdict = judge(judge_llm, q, result)
+            row["cited_sources"] = cited_sources(result)
+            verdict = judge(judge_llm, q, result.answer, row["cited_sources"])
             judge_pacer.record(verdict.pop("_tokens", 0))
             row["correctness"] = verdict.get("correctness")
             row["claims"] = verdict.get("claims", [])
