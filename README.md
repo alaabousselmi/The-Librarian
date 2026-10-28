@@ -7,7 +7,7 @@ every claim, or says "I don't know".
 > CS496 AI Engineering — Project 2 (MedTech, Fall 2026). Plan: [`docs/PLAN.md`](docs/PLAN.md) ·
 > Design: [`docs/design.md`](docs/design.md)
 
-**Live service:** _URL added in Week 2 (Hugging Face Spaces)_
+**Live service:** _not deployed yet (Hugging Face Spaces + Qdrant Cloud planned)_
 
 ## Quick start
 
@@ -90,23 +90,33 @@ gold source passage(s), answerable flag.
 
 ## Results
 
-_Filled in Week 2 (baseline) and Week 3 (after optimisation)._
-
-First numbers (Week 1, 25 seed questions — indicative only): correctness 0.96, faithfulness 0.98,
-citation accuracy 0.98, "I don't know" recall 1.0, p50 1.6 s / p95 2.5 s, $0.00037 per request at list price.
+120-question eval set (104 answerable, 16 unanswerable; docs, Discussions, issues, multi-part, code,
+version questions), full corpus of 1 539 documents. Generator `gpt-oss-120b`, judge `qwen3.8-27b`.
+v1 and v2 were run back to back (provider latency drifts by hours, see the optimisation report).
 
 | Metric | v1.0 baseline | v2.0 optimised |
 |---|---|---|
-| Recall@5 (hybrid + rerank) | | |
-| Correctness | | |
-| Faithfulness | | |
-| Citation accuracy | | |
-| "I don't know" recall | | |
-| p50 / p95 latency | | |
-| Cost / request (list price) | | |
+| Recall@5 / MRR@10 (hybrid + rerank) | 0.755 / 0.591 | 0.755 / 0.591 (retrieval unchanged) |
+| Correctness | 0.896 (second run: 0.908) | 0.896 |
+| Faithfulness | 0.973 | 0.936 |
+| Citation accuracy | 0.976 | 0.959 |
+| "I don't know" recall / false IDK | 1.00 / 4.8% | 1.00 / 3.8% |
+| p50 / p95 latency | 1.96 s / 3.66 s | 1.84 s / **2.78 s (−24%)** |
+| Generation p95 | 2.59 s | **1.28 s (−51%)** |
+| Cost / request (list price) | $0.000375 | $0.000364 |
 
-Ablation table: [`eval/results/ablation.md`](eval/results/ablation.md) ·
+* Retrieval ablation (BM25 0.66 → dense 0.59 → hybrid 0.70 → + reranker **0.76** recall@5):
+  [`eval/results/ablation.md`](eval/results/ablation.md); chunking experiment:
+  [`eval/results/chunking.md`](eval/results/chunking.md).
+* Abstention: 13 of 16 unanswerable questions are stopped before any LLM call
+  ([`eval/results/abstain_calibration.md`](eval/results/abstain_calibration.md)); the generator refuses the rest.
+* Judge: same verdict on 40/40 re-judged answers; human check sheet in `data/eval/judge_check.csv`.
+* Load test (local, 3 concurrent clients): 30/30 OK, p50 3.8 s / p95 4.5 s, ~1 request/s, bounded by the
+  CPU reranker ([`eval/results/load_test.md`](eval/results/load_test.md)).
+* Cost: ~$1/month at 100 questions/day, ~$110/month at 100× ([`docs/cost_model.md`](docs/cost_model.md)).
+
 Optimisation report: [`docs/optimisation.md`](docs/optimisation.md) ·
+Corpus: [`docs/corpus.md`](docs/corpus.md) ·
 Postmortem: [`docs/postmortem.md`](docs/postmortem.md)
 
 ## Repository layout
@@ -127,12 +137,14 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md). Never commit `.env`, API keys, or raw 
 
 ## Contributions
 
-| Member | Role | Main contributions |
-|---|---|---|
-| _name_ | A — Data & Index | |
-| _name_ | B — Retrieval & Eval | |
-| _name_ | C — Generation & LLM | |
-| _name_ | D — Service & Ops | |
+| Member | Main contributions |
+|---|---|
+| Mohamed Amine Zouaoui | Packaging, config and data models; chunking; embeddings and the Qdrant index; LLM client with cost tracking; query rewriting; hybrid search with RRF; cross-encoder reranking; grounded answers with validated citations; abstention and its calibration; CLI; generation eval and judge validation; Week 8 optimisation; design doc |
+| Alaeddine Bousselmi | FastAPI docs loader; GitHub Discussions/issues loader; corpus size, licence and permission; hand-written gold questions; postmortem |
+| Seifeddine Knani | Chunk-size experiments; second batch of gold questions from real Discussions/issues; LLM-drafted questions and their review; retrieval eval; ablation; optimisation report; cost model |
+| Walid Fakhfakh | Telemetry; HTTP API; web chat page with feedback; load test; unit tests; Docker and Compose; CI; README |
+
+Per-task authorship is in the git history (one commit per task).
 
 ## License
 
