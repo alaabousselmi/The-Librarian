@@ -85,28 +85,28 @@ question with citations in the browser; CI green; eval scripts run on the seed s
 Corresponds to the brief's "working version, end of Week 7". This week is about **evidence**.
 
 ### A — Data & Index
-- ⬜ Chunking experiments: `markdown` vs `fixed` × size {200, 400, 800} × overlap {0, 60} → one collection each, compare recall@5
+- ✅ Chunking experiments: `markdown` 200/400/800 × overlap 0/60 vs `fixed` 400 on the docs subset → keep markdown 400/60 (design.md §3)
 - ⬜ Handle known gaps: API reference pages (`::: fastapi.X` docstrings), long release notes, tables
-- ⬜ Pin `FASTAPI_REF` to a release tag for reproducibility; record corpus stats (docs/pages/chunks/tokens)
+- ✅ Pin `FASTAPI_REF` to `0.162.0`; corpus stats in `docs/corpus.md` (1 539 documents, 2.23 M tokens, 19 650 chunks)
 
 ### B — Retrieval & Eval
-- ⬜ Grow eval set to **≥ 120 verified pairs** (≥ 15 unanswerable, mix of docs / discussions / multi-part / code / "since which version")
+- ✅ Grow eval set to **120 pairs** (new rows `verified: false` until a second teammate checks them) (≥ 15 unanswerable, mix of docs / discussions / multi-part / code / "since which version")
   — every pair reviewed by a second teammate, `verified: true`
-- ⬜ Retrieval eval: recall@{1,3,5,10}, MRR per mode
-- ⬜ **Ablation table**: BM25 only · dense only · hybrid · hybrid + reranker (and rewrite on/off)
-- ⬜ Search-step latency p50/p95
+- ✅ Retrieval eval: recall@{1,3,5,10}, MRR per mode
+- ✅ **Ablation table**: BM25 only · dense only · hybrid · hybrid + reranker (and rewrite on/off)
+- ✅ Search-step latency p50/p95
 
 ### C — Generation & LLM
-- ⬜ Generation eval on full set: correctness, faithfulness, citation accuracy, "I don't know" precision/recall
-- ⬜ Calibrate `ABSTAIN_THRESHOLD` on unanswerable questions; tune prompt from failure analysis
-- ⬜ Hand-check 20 judge verdicts to validate the LLM judge (agreement %)
-- ⬜ Cost model: cost/request today and at 100× traffic (free tier limits vs paid list price)
+- ✅ Generation eval on full set: correctness, faithfulness, citation accuracy, "I don't know" precision/recall
+- ✅ Calibrate `ABSTAIN_THRESHOLD` on unanswerable questions (-6.0 → -0.5); tune prompt from failure analysis
+- 🟡 Hand-check 20 judge verdicts: sheet exported (`data/eval/judge_check.csv`), human grades pending; judge self-agreement 40/40
+- ✅ Cost model: cost/request today and at 100× traffic (`docs/cost_model.md`)
 
 ### D — Service & Ops
 - ⬜ **Deploy**: Hugging Face Spaces (Docker) + Qdrant Cloud; public URL in README
 - ⬜ Persist telemetry beyond container restarts (export job or hosted Postgres)
 - ⬜ Real users: share with classmates + FastAPI study group, target ≥ 30 users / ≥ 100 questions; collect 👍/👎
-- ⬜ End-to-end latency p50/p95 from logs and a small load test (`eval/load_test.py`)
+- 🟡 End-to-end latency p50/p95: local load test done; from real logs once deployed
 - ⬜ `docs/design.md` complete, with failure cases observed in real logs
 
 **Exit criteria Week 2:** deployed URL, ablation table, generation metrics, real feedback numbers — the "working version" baseline frozen and tagged `v1.0`.
@@ -118,19 +118,19 @@ Corresponds to the brief's "working version, end of Week 7". This week is about 
 Corresponds to the brief's Week 8. Same test set before and after, every change measured.
 
 ### Optimisation (all roles, one lever each)
-- ⬜ Baseline numbers from `v1.0`: cost/request, p50/p95, correctness, faithfulness
-- ⬜ **C:** smaller generator for easy questions / fewer + shorter chunks in the prompt (top_k 6 → 3–4, trimmed chunks)
+- ✅ Baseline numbers from `v1.0`: cost/request, p50/p95, correctness, faithfulness
+- ✅ **C:** smaller generator / fewer chunks: measured, both rejected (accuracy loss > 2 points)
 - ⬜ **C:** prompt caching for the fixed system prompt (measure cached tokens)
-- ⬜ **B:** skip the reranker when first-stage retrieval is confident; skip rewrite more often
+- ✅ **B:** fewer rerank candidates: measured, rejected (−3.3 points)
 - ⬜ **D:** semantic answer cache for repeated questions (embedding similarity ≥ threshold)
 - ⬜ **A:** smaller index (int8 / binary quantisation in Qdrant), cheaper embeddings
-- ⬜ Keep a change only if accuracy drops ≤ 2 points; target **−50% p95 or cost**
-- ⬜ `docs/optimisation.md`: one row per change, before / after numbers
+- ✅ Keep a change only if accuracy drops ≤ 2 points; target **−50% p95 or cost**
+- ✅ `docs/optimisation.md`: one row per change, before / after numbers
 
 ### Hand-in
 - ⬜ Report (≤ 6 pages): corpus & users · pipeline design · retrieval + ablation · generation results · Week 8 · failure cases + cost model
-- ⬜ `docs/postmortem.md` — real problems and what we learned (a postmortem with no problems loses points)
-- ⬜ README results section filled; Contributions section per member
+- ✅ `docs/postmortem.md` — real problems and what we learned (a postmortem with no problems loses points)
+- ✅ README results section filled; Contributions section per member
 - ⬜ Clean-clone test on a fresh machine; secret scan (no keys, no personal data)
 - ⬜ Demo script + rehearsal (live question, citations, ablation slide, before/after slide)
 - ⬜ Tag `v2.0`
