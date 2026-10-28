@@ -18,7 +18,7 @@ import random
 
 import typer
 from agreement import exact_pct, matrix_rows, quadratic_weighted_kappa, to_cat
-from common import ROOT, RESULTS, load_questions, save_results
+from common import RESULTS, ROOT, load_questions, save_results
 from generation_eval import judge
 
 from librarian.config import get_settings
