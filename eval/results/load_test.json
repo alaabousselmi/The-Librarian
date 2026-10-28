@@ -1,0 +1,14 @@
+{
+  "url": "http://localhost:8000",
+  "n": 30,
+  "concurrency": 3,
+  "status": {
+    "200": 30
+  },
+  "throughput_rps": 0.77,
+  "p50_ms": 3836.0,
+  "p95_ms": 4450.0,
+  "max_ms": 4810.7,
+  "server_p50_ms": 3766.8,
+  "server_p95_ms": 4431.8
+}
