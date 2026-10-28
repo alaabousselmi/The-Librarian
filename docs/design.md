@@ -134,21 +134,23 @@ Source: `python eval/ablation.py --rewrite` → [`eval/results/ablation.md`](../
 * The judge (Qwen3.8-27B) is a different family from the generator (gpt-oss) to limit self-preference;
   we validate it by hand on a sample.
 
-## 8. Known failure cases (to verify and extend with real logs in Week 2)
+## 8. Known failure cases (observed in the 120-question eval; real-user logs pending deployment)
 
 | # | Case | Why it breaks | Mitigation / status |
 |---|---|---|---|
 | 1 | API reference pages (`::: fastapi.FastAPI`) | content is generated from docstrings at build time; we drop the directive, so parameter-level reference is missing | Week 2: extract docstrings from the installed `fastapi` package |
-| 2 | Release notes / version questions | "since which version" questions need the right `## 0.x.y` section; observed: *"Since which version is Annotated supported?"* answered **0.105.0** (correct: 0.95.0) from a release-notes chunk that mentions Annotated | Week 2: add more `version` questions, boost the tutorial statement, tell the model release notes list *changes*, not first support |
+| 2 | Release notes / version questions | "since which version" needs the right `## 0.x.y` section, but many later entries mention the same feature. Observed in the eval: q018 Annotated → **0.115.0** (correct 0.95.0), q050 `app.frontend()` → **0.141.0** (correct 0.138.0). 2 of the 4 version questions wrong | still open: index release notes one version per chunk with the version in the breadcrumb; tell the model the *earliest* entry is the answer |
 | 3 | Code-only answers | BM25 matches identifiers well, dense embeddings do not | hybrid search; keep code fences whole |
 | 4 | Long code blocks (> chunk size) | split across chunks, the explanation may be in another chunk | breadcrumb prefix; consider larger size for code |
-| 5 | Outdated Discussions | answers written for old FastAPI/Pydantic v1 | show date + source type to the model; prefer docs |
+| 5 | Outdated Discussions / issues | answers written for old FastAPI/Pydantic v1. Observed: q086/q116 (JWT): 2020-era issues using `python-jose` outweighed the release note saying the docs moved to PyJWT; the model even inverted the change | show date + source type to the model; prefer docs. Still open: down-weight community sources older than the docs ref in reranking |
 | 6 | Cross-references ("see the previous section") | the referenced text is in another chunk/page | rewriting + multi-query; known limitation |
 | 7 | Tables (e.g. status codes, settings) | a row out of context loses its header | small tables stay in one block; to measure |
 | 8 | Multi-part questions | one retrieval rarely covers both parts; reranking against the full question let the dominant part take every slot | rewrite into sub-queries **and rerank each sub-query separately**, interleaving results (fixed Week 1) |
 | 9 | Questions about other frameworks | dense retrieval always returns *something* | rerank threshold + model "I don't know" |
 | 10 | Ambiguous intent: "run code after the response" | middleware ("before and after the response") outranks background tasks for the reranker | rewrite / let the generator mention both; add to eval set |
 | 11 | Prompt injection inside Discussions text | user-written content is passed to the LLM | system prompt rules; sources are quoted as data |
+| 12 | False "I don't know" | all 3 refusals of answerable questions (2.9%) are retrieval misses, not generation errors: for q029 (disable `/docs`), q044 (`HTMLResponse`) and q101 (union of query models) the gold chunk is not in the top 6, which Discussions fill, so the generator correctly refuses | hybrid + rerank recall@5 is 0.76: the remaining misses are mostly docs pages outranked by Discussions that quote the same identifiers |
+| 13 | Latency tail from the LLM provider | p95 is set by generation (9.5 s of 10.6 s), and the slowest calls were slow providers (26–60 tok/s), not long answers | Week 3: route to a fast provider, shorter answers (docs/optimisation.md) |
 
 ## 9. Provider limits (measured 2026-10-21 from Groq response headers)
 
