@@ -25,6 +25,7 @@ PRICES: dict[str, tuple[float, float]] = {
     "openai/gpt-oss-120b": (0.15, 0.60),
     "openai/gpt-oss-20b": (0.075, 0.30),
     "qwen/qwen3.8-27b": (0.80, 4.00),  # preview model
+    "meta-llama/llama-3.1-8b-instruct": (0.05, 0.08),  # rewriter stand-in where allam-2-7b is not offered
 }
 
 THINK = re.compile(r"<think>.*?</think>", re.S)

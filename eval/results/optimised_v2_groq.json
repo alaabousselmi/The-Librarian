@@ -1,0 +1,22 @@
+{
+  "name": "optimised_v2_groq",
+  "n_questions": 120,
+  "generator": "openai/gpt-oss-120b",
+  "judge": "qwen/qwen3.8-27b",
+  "correctness": 0.8958333333333334,
+  "faithfulness": 0.9364161849710982,
+  "citation_accuracy": 0.9585798816568047,
+  "uncited_claim_rate": 0.023121387283236983,
+  "idk_recall": 1.0,
+  "false_idk_rate": 0.038461538461538464,
+  "p50_ms": 1839.3,
+  "p95_ms": 2777.9,
+  "avg_cost_usd": 0.000363919,
+  "avg_input_tokens": 1712.8166666666666,
+  "config": {
+    "mode": "hybrid",
+    "rerank": true,
+    "top_k": 6,
+    "rewrite": "auto"
+  }
+}

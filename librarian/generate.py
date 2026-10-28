@@ -25,7 +25,8 @@ Rules:
 4. Prefer the official documentation over discussions/issues when they disagree, and say so.
    Discussions and issues describe one user's situation and may be outdated.
 5. You may include short code examples, but only code shown in, or directly adapted from, the sources.
-6. Be concise: a direct answer first, then details. Use Markdown."""
+6. Be concise: a direct answer first, then only the details the question needs — at most about
+   150 words plus at most one short code example. Use Markdown."""
 
 CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 # gpt-oss models sometimes cite in their native style: 【2】 or 【2†L10-L12】
